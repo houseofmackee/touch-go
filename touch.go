@@ -67,7 +67,7 @@ func main() {
 		}
 
 		// get modified/accessed time from a reference file rather than
-		// using current time.
+		// using current time
 		if filePattern == "-r=" || filePattern == "--reference=" {
 			if i++; i < numArgs {
 				refFilename := os.Args[i]
@@ -119,7 +119,7 @@ func main() {
 		}
 
 		// now use Walk to grab all files and directories in the provided
-		// folders, add them to the filenames array and ignore all errors.
+		// folders, add them to the filenames array and ignore all errors
 		for _, dirName := range dirNames {
 			err := filepath.Walk(dirName, func(path string, info fs.FileInfo, err error) error {
 				// ignore errors for now, and just pass them along
@@ -156,8 +156,8 @@ func addFileName(strFileName string) {
 	mapFileNames[strFileName] = true
 }
 
-// checks is a file exists. if it does it changes the timestamps, but if it
-// doesn't exist it creates a file.
+// checks if a file exists. if it does it changes the timestamps, but if it
+// doesn't exist it creates a file
 func touch(fileName string) {
 	_, err := os.Stat(fileName)
 	if os.IsNotExist(err) {
