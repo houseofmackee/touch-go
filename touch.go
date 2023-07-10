@@ -6,21 +6,27 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-// because Go has no "set" we'll fake a set of uniqe file paths it with
-// an array and a map
-var setFileNames = []string{}
-var mapFileNames = make(map[string]bool)
+var (
+	// because Go has no "set" we'll fake a set of uniqe file paths it with
+	// an array and a map
+	setFileNames = []string{}
+	mapFileNames = make(map[string]bool)
 
-var isRecursive = false        // flag for recusrisve directory scanning
-var isCreateFiles = true       // flag to enable/disable file creation
-var isAccessTimeOnly = false   // flag to update last access time only
-var isModifiedTimeOnly = false // flag to update last modified time only
+	isRecursive        = false // flag for recusrisve directory scanning
+	isCreateFiles      = true  // flag to enable/disable file creation
+	isAccessTimeOnly   = false // flag to update last access time only
+	isModifiedTimeOnly = false // flag to update last modified time only
 
-var timeModified = time.Now().Local()
-var timeAccessed = timeModified
+	// defaults for modified and accessed time
+	timeModified = time.Now().Local()
+	timeAccessed = timeModified
+
+	version = "0.1.0"
+)
 
 func main() {
 
@@ -31,14 +37,22 @@ func main() {
 		return
 	}
 
+	fmt.Printf("Args: %s\n", os.Args)
+
 	// go through the provided command line arguments and set the relevant
 	// switches or build an array of unique file/directory names
 	for i := 1; i < numArgs; i++ {
 		filePattern := os.Args[i]
 
-		// check if help was requestes
+		// check if help was requested
 		if filePattern == "-h" || filePattern == "--help" {
 			printHelp()
+			return
+		}
+
+		// check if version info was requested
+		if filePattern == "-v" || filePattern == "--version" {
+			fmt.Printf("%s version %s\n", os.Args[0], version)
 			return
 		}
 
@@ -68,17 +82,28 @@ func main() {
 
 		// get modified/accessed time from a reference file rather than
 		// using current time
-		if filePattern == "-r=" || filePattern == "--reference=" {
-			if i++; i < numArgs {
-				refFilename := os.Args[i]
-				timeMod, timeAcs, err := getFileTimes(refFilename)
-				if os.IsNotExist(err) {
-					log.Fatal("Reference file not found")
+		if strings.HasPrefix(filePattern, "-r=") || strings.HasPrefix(filePattern, "--reference=") {
+			// this looks weird, but so is PowerShell. this is a workaround
+			// for how PowerShell passes arguments to programs.
+			var refFilename = ""
+			if filePattern == "-r=" || filePattern == "--reference=" {
+				if i++; i < numArgs {
+					refFilename = os.Args[i]
 				}
-				timeModified, timeAccessed = timeMod, timeAcs
 			} else {
+				refFilename = strings.Split(filePattern, "=")[1]
+			}
+
+			if refFilename == "" {
 				log.Fatal("Reference file not provided")
 			}
+
+			timeMod, timeAcs, err := getFileTimes(refFilename)
+			if os.IsNotExist(err) {
+				log.Fatalf("Reference file %s not found", refFilename)
+			}
+			timeModified, timeAccessed = timeMod, timeAcs
+
 			continue
 		}
 
