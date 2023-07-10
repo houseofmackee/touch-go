@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	// because Go has no "set" we'll fake a set of uniqe file paths it with
-	// an array and a map
+	// because Go has no "set" we'll fake a set of unique file paths with
+	// an array and a string/bool map
 	setFileNames = []string{}
 	mapFileNames = make(map[string]bool)
 
@@ -25,7 +25,7 @@ var (
 	timeModified = time.Now().Local()
 	timeAccessed = timeModified
 
-	version = "0.1.0"
+	version = "0.2.0"
 )
 
 func main() {
@@ -36,8 +36,6 @@ func main() {
 		printHelp()
 		return
 	}
-
-	fmt.Printf("Args: %s\n", os.Args)
 
 	// go through the provided command line arguments and set the relevant
 	// switches or build an array of unique file/directory names
@@ -169,7 +167,7 @@ func main() {
 
 // print help text
 func printHelp() {
-	fmt.Printf("Usage: %s [-h|--help][-R|--recursive][-c|--no-create][-r=FILE|--reference=FILE][-a][-m] <paths> ...", os.Args[0])
+	fmt.Printf("Usage: %s [-h|--help][-v|--version][-R|--recursive][-c|--no-create][-r=FILE|--reference=FILE][-a][-m] <paths> ...", os.Args[0])
 }
 
 // add string to array and make sure it's unique
