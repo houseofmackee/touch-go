@@ -24,3 +24,6 @@ The supported command line options are:
 
 **-h**, **--help**
       display a short help text and exit
+
+**-v**, **--version**
+      display version info and exit
