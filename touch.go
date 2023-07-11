@@ -13,7 +13,7 @@ import (
 var (
 	mapFileNames = make(map[string]bool)
 
-	isRecursive        = false // flag for recusrisve directory scanning
+	isRecursive        = false // flag for recursive directory scanning
 	isCreateFiles      = true  // flag to enable/disable file creation
 	isAccessTimeOnly   = false // flag to update last access time only
 	isModifiedTimeOnly = false // flag to update last modified time only
@@ -22,7 +22,7 @@ var (
 	timeModified = time.Now().Local()
 	timeAccessed = timeModified
 
-	version = "0.3.0"
+	version = "0.4.0"
 )
 
 func main() {
@@ -133,9 +133,9 @@ func main() {
 	// check if any are directories and add all the files inside them to
 	// the array
 	if isRecursive {
-		// build a list of directories in the array of names
+		// build a list of directories from the array of names
 		var dirNames = []string{}
-		for fileName, _ := range mapFileNames {
+		for fileName := range mapFileNames {
 			if isDir, _ := isDirectory(fileName); isDir {
 				dirNames = append(dirNames, fileName)
 			}
@@ -163,7 +163,7 @@ func main() {
 	if len(mapFileNames) == 0 {
 		log.Fatal("No files or directories provided")
 	} else {
-		for fileName, _ := range mapFileNames {
+		for fileName := range mapFileNames {
 			touch(fileName)
 		}
 	}
