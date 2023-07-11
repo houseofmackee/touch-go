@@ -11,9 +11,6 @@ import (
 )
 
 var (
-	// because Go has no "set" we'll fake a set of unique file paths with
-	// an array and a string/bool map
-	setFileNames = []string{}
 	mapFileNames = make(map[string]bool)
 
 	isRecursive        = false // flag for recusrisve directory scanning
@@ -25,7 +22,7 @@ var (
 	timeModified = time.Now().Local()
 	timeAccessed = timeModified
 
-	version = "0.2.0"
+	version = "0.3.0"
 )
 
 func main() {
@@ -42,67 +39,76 @@ func main() {
 	for i := 1; i < numArgs; i++ {
 		filePattern := os.Args[i]
 
-		// check if help was requested
-		if filePattern == "-h" || filePattern == "--help" {
-			printHelp()
-			return
-		}
+		// check command line arguments
+		if strings.HasPrefix(filePattern, "-") {
+			// check if help was requested
+			if filePattern == "-h" || filePattern == "--help" {
+				printHelp()
+				return
+			}
 
-		// check if version info was requested
-		if filePattern == "-v" || filePattern == "--version" {
-			fmt.Printf("%s version %s\n", os.Args[0], version)
-			return
-		}
+			// check if version info was requested
+			if filePattern == "-v" || filePattern == "--version" {
+				fmt.Printf("%s version %s\n", os.Args[0], version)
+				return
+			}
 
-		// check if the recusrsive argument has been passed along
-		if filePattern == "-R" || filePattern == "--recursive" {
-			isRecursive = true
-			continue
-		}
+			// check if the recusrsive argument has been passed along
+			if filePattern == "-R" || filePattern == "--recursive" {
+				isRecursive = true
+				continue
+			}
 
-		// check if file creation should be disabled
-		if filePattern == "-c" || filePattern == "--no-create" {
-			isCreateFiles = false
-			continue
-		}
+			// check if file creation should be disabled
+			if filePattern == "-c" || filePattern == "--no-create" {
+				isCreateFiles = false
+				continue
+			}
 
-		// check if only file modification time should be changed
-		if filePattern == "-m" {
-			isModifiedTimeOnly = true
-			continue
-		}
+			// check if only file modification time should be changed
+			if filePattern == "-m" {
+				isModifiedTimeOnly = true
+				continue
+			}
 
-		// check if only file access time should be changed
-		if filePattern == "-a" {
-			isAccessTimeOnly = true
-			continue
-		}
+			// check if only file access time should be changed
+			if filePattern == "-a" {
+				isAccessTimeOnly = true
+				continue
+			}
 
-		// get modified/accessed time from a reference file rather than
-		// using current time
-		if strings.HasPrefix(filePattern, "-r=") || strings.HasPrefix(filePattern, "--reference=") {
-			// this looks weird, but so is PowerShell. this is a workaround
-			// for how PowerShell passes arguments to programs.
-			var refFilename = ""
-			if filePattern == "-r=" || filePattern == "--reference=" {
-				if i++; i < numArgs {
-					refFilename = os.Args[i]
+			// get modified/accessed time from a reference file rather than
+			// using current time
+			if strings.HasPrefix(filePattern, "-r=") || strings.HasPrefix(filePattern, "--reference=") {
+				// this looks weird, but so is PowerShell. this is a workaround
+				// for how PowerShell passes arguments to programs.
+				var refFilename = ""
+				if filePattern == "-r=" || filePattern == "--reference=" {
+					if i++; i < numArgs {
+						refFilename = os.Args[i]
+					}
+				} else {
+					refFilename = strings.Split(filePattern, "=")[1]
 				}
-			} else {
-				refFilename = strings.Split(filePattern, "=")[1]
+
+				if refFilename == "" {
+					log.Fatal("Reference file not provided")
+				}
+
+				timeMod, timeAcs, err := getFileTimes(refFilename)
+				if os.IsNotExist(err) {
+					log.Fatalf("Reference file %s not found", refFilename)
+				}
+				timeModified, timeAccessed = timeMod, timeAcs
+				continue
 			}
 
-			if refFilename == "" {
-				log.Fatal("Reference file not provided")
+			// the below are mutually exclusive, so exit if both set
+			if isAccessTimeOnly && isModifiedTimeOnly {
+				log.Fatal("Access-time-only and modified-time-only flags are mutually exclusive")
 			}
 
-			timeMod, timeAcs, err := getFileTimes(refFilename)
-			if os.IsNotExist(err) {
-				log.Fatalf("Reference file %s not found", refFilename)
-			}
-			timeModified, timeAccessed = timeMod, timeAcs
-
-			continue
+			log.Fatalf("Unknown argument %s\n", filePattern)
 		}
 
 		// expand the filepattern
@@ -123,20 +129,14 @@ func main() {
 		}
 	}
 
-	// the below are mutually exclusive, so exit if both set
-	if isAccessTimeOnly && isModifiedTimeOnly {
-		log.Fatal("Access time only and modified time only flags are mutually exclusive")
-	}
-
 	// if the recursive flag is set then go through the array of names and
 	// check if any are directories and add all the files inside them to
 	// the array
 	if isRecursive {
 		// build a list of directories in the array of names
 		var dirNames = []string{}
-		for _, fileName := range setFileNames {
-			isDir, _ := isDirectory(fileName)
-			if isDir {
+		for fileName, _ := range mapFileNames {
+			if isDir, _ := isDirectory(fileName); isDir {
 				dirNames = append(dirNames, fileName)
 			}
 		}
@@ -160,8 +160,12 @@ func main() {
 	}
 
 	// finally go through the array of unique file paths and update/create them
-	for _, fileName := range setFileNames {
-		touch(fileName)
+	if len(mapFileNames) == 0 {
+		log.Fatal("No files or directories provided")
+	} else {
+		for fileName, _ := range mapFileNames {
+			touch(fileName)
+		}
 	}
 }
 
@@ -172,10 +176,6 @@ func printHelp() {
 
 // add string to array and make sure it's unique
 func addFileName(strFileName string) {
-	if mapFileNames[strFileName] {
-		return
-	}
-	setFileNames = append(setFileNames, strFileName)
 	mapFileNames[strFileName] = true
 }
 
@@ -239,9 +239,9 @@ func getFileTimes(fileName string) (time.Time, time.Time, error) {
 
 // determine if a file represented by `path` is a directory or not
 func isDirectory(path string) (bool, error) {
-	fileInfo, err := os.Stat(path)
-	if err != nil {
+	if fileInfo, err := os.Stat(path); err != nil {
 		return false, err
+	} else {
+		return fileInfo.IsDir(), nil
 	}
-	return fileInfo.IsDir(), err
 }
